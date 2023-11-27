@@ -63,12 +63,13 @@ botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaci
       }
     }
 
+    // se le da clic al primer link para ver hasta cuando se puede votar de nuevo
+    // en el evento dialog (que es la ventana alert obtenermos la fecha de proxima votación)
+    await page.click(selectoresLinks.Xtremetop);
+
     if (contVotos === 0) {
-      // se le da clic al primer link para ver hasta cuando se puede votar de nuevo
-      // en el evento dialog (que es la ventana alert obtenermos la fecha de proxima votación)
-      await page.click(selectoresLinks.Xtremetop);
-      const storeFecha = JSON.parse(fs.readFileSync('store.json'));
-      msgTelegram = `🕐 *Ultimo voto fue:* ${storeFecha.fechaUltimoVotoBeauty}\n🗳 *De nuevo hasta:* ${proximaFechaVoto}`;
+      const storedFecha = JSON.parse(fs.readFileSync('store.json'));
+      msgTelegram = `🕐 *Ultimo voto fue:* ${storedFecha.fechaUltimoVotoBeauty}`;
     }
 
     if (contVotos > 0) {
@@ -80,6 +81,8 @@ botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaci
       fs.writeFileSync('store.json', JSON.stringify(ultimaVotacionFecha))
       msgTelegram = `✅ *Votos realizados:* ${contVotos}`;
     }
+
+    msgTelegram += `\n🗳❔ *Vota de nuevo:* ${proximaFechaVoto}`
 
     await page.keyboard.up('Control'); // Suelta tecla control
     await page.reload();
