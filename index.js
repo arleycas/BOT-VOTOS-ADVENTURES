@@ -5,6 +5,7 @@ import fs from 'fs';
 import 'dotenv/config'
 // import { message } from 'telegraf/filters';
 const { TOKEN_TELEGRAM, ID_ARLEY_TELEGRAM, URL_ADVENTURES, USER_ADVENTURES, PASS_ADVENTURES } = process.env;
+const FILE_STORE_NAME = 'store.json';
 
 const botTG = new Telegraf(TOKEN_TELEGRAM);
 botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaciones...`, { parse_mode: 'Markdown' });
@@ -63,12 +64,19 @@ botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaci
       }
     }
 
+    await page.keyboard.up('Control'); // Suelta tecla control
+    await page.reload();
+
     // se le da clic al primer link para ver hasta cuando se puede votar de nuevo
     // en el evento dialog (que es la ventana alert obtenermos la fecha de proxima votación)
     await page.click(selectoresLinks.Xtremetop);
 
+    // lo crea si no existe
+    if (!fs.existsSync(FILE_STORE_NAME))
+      fs.writeFileSync(FILE_STORE_NAME, JSON.stringify({ fechaUltimoVotoBeauty: 'SIN DATA', fechaUltimoVotoDateObject: 'SIN DATA' }));
+
     if (contVotos === 0) {
-      const storedFecha = JSON.parse(fs.readFileSync('store.json'));
+      const storedFecha = JSON.parse(fs.readFileSync(FILE_STORE_NAME));
       msgTelegram = `🕐 *Ultimo voto fue:* ${storedFecha.fechaUltimoVotoBeauty}`;
     }
 
@@ -78,14 +86,11 @@ botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaci
         fechaUltimoVotoDateObject: ahoraMismo.toString()
       }
 
-      fs.writeFileSync('store.json', JSON.stringify(ultimaVotacionFecha))
+      fs.writeFileSync(FILE_STORE_NAME, JSON.stringify(ultimaVotacionFecha));
       msgTelegram = `✅ *Votos realizados:* ${contVotos}`;
     }
 
     msgTelegram += `\n🗳❔ *Vota de nuevo:* ${proximaFechaVoto}`
-
-    await page.keyboard.up('Control'); // Suelta tecla control
-    await page.reload();
 
     const selectorLabelVotos = '#section-mains > div > table > tbody > tr:nth-child(1) > td:nth-child(1)';
     await page.waitForSelector(selectorLabelVotos); // espera a que cargue
