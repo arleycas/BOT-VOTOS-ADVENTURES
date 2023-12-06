@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer';
 import { Telegraf } from 'telegraf';
-import { format } from 'date-fns';
+import { format, addHours } from 'date-fns';
 import fs from 'fs';
 import 'dotenv/config'
 // import { message } from 'telegraf/filters';
@@ -10,7 +10,7 @@ const FILE_STORE_NAME = 'store.json';
 const botTG = new Telegraf(TOKEN_TELEGRAM);
 botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaciones...`, { parse_mode: 'Markdown' });
 
-(async () => {
+const runBot = async () => {
   // Launch the browser and open a new blank page
   try {
     console.log('🤖 Se inicia titiritero...');
@@ -18,16 +18,6 @@ botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaci
       headless: 'new', // 'new' para que el navegador No se muestre / false para que se muestre
     });
     const page = await browser.newPage();
-    let proximaFechaVoto = null;
-    let msgTelegram = '';
-
-    page.on('dialog', async dialog => {
-      const textoDialog = dialog.message();
-      const fechaDialog = textoDialog.replace('Blocked in voting for site until:', '').trim();
-      proximaFechaVoto = format(new Date(fechaDialog), 'dd-MMM KK:mm:ss a');
-
-      await dialog.accept()
-    });
 
     // Navigate the page to a URL
     await page.goto(URL_ADVENTURES);
@@ -46,11 +36,9 @@ botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaci
     }
 
     await page.waitForSelector(selectoresLinks.Xtremetop); // espera a que cargue
-
     await page.keyboard.down('Control'); // Presiona control
 
     let contVotos = 0;
-    const ahoraMismo = new Date();
     for (const key in selectoresLinks) {
       if (Object.hasOwnProperty.call(selectoresLinks, key)) {
         const selector = selectoresLinks[key];
@@ -64,20 +52,20 @@ botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaci
       }
     }
 
+    const ahoraMismo = new Date();
     await page.keyboard.up('Control'); // Suelta tecla control
     await page.reload();
 
-    // se le da clic al primer link para ver hasta cuando se puede votar de nuevo
-    // en el evento dialog (que es la ventana alert obtenermos la fecha de proxima votación)
-    await page.click(selectoresLinks.Xtremetop);
-
     // lo crea si no existe
-    if (!fs.existsSync(FILE_STORE_NAME))
-      fs.writeFileSync(FILE_STORE_NAME, JSON.stringify({ fechaUltimoVotoBeauty: 'SIN DATA', fechaUltimoVotoDateObject: 'SIN DATA' }));
+    if (!fs.existsSync(FILE_STORE_NAME)) fs.writeFileSync(FILE_STORE_NAME, JSON.stringify({ fechaUltimoVotoBeauty: 'SIN DATA', fechaUltimoVotoDateObject: 'SIN DATA' }));
+
+    let proximaFechaVoto = null; // * se puede votar cada 20 horas
+    let msgTelegram = '';
 
     if (contVotos === 0) {
       const storedFecha = JSON.parse(fs.readFileSync(FILE_STORE_NAME));
       msgTelegram = `🕐 *Ultimo voto fue:* ${storedFecha.fechaUltimoVotoBeauty}`;
+      proximaFechaVoto = addHours(new Date(storedFecha.fechaUltimoVotoDateObject), 20);
     }
 
     if (contVotos > 0) {
@@ -88,8 +76,10 @@ botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaci
 
       fs.writeFileSync(FILE_STORE_NAME, JSON.stringify(ultimaVotacionFecha));
       msgTelegram = `✅ *Votos realizados:* ${contVotos}`;
+      proximaFechaVoto = addHours(ahoraMismo, 20);
     }
 
+    proximaFechaVoto = format(proximaFechaVoto, 'dd-MMM KK:mm:ss a');
     msgTelegram += `\n🗳❔ *Vota de nuevo:* ${proximaFechaVoto}`
 
     const selectorLabelVotos = '#section-mains > div > table > tbody > tr:nth-child(1) > td:nth-child(1)';
@@ -106,4 +96,6 @@ botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `🤖 Se ejecuta titiritero votaci
     console.log(error);
     botTG.telegram.sendMessage(ID_ARLEY_TELEGRAM, `❌ *Error al votar.*\n${JSON.stringify(error)}`, { parse_mode: 'Markdown' });
   }
-})();
+}
+
+runBot();
